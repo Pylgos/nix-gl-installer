@@ -8,7 +8,7 @@ Running this script with root privileges may cause driver detection failure. Ple
 ### Install
 ```sh
 curl https://raw.githubusercontent.com/Pylgos/nix-gl-installer/main/nix-gl-installer > ./nix-gl-installer
-sh ./nix-gl-installer
+bash ./nix-gl-installer
 ```
 
 ### Uninstall
