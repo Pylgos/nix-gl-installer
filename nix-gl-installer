@@ -29,7 +29,7 @@ get_driver_type() {
   case $(get_glx_vendor_string) in
     'NVIDIA Corporation') driver_type=nvidia;;
     'Mesa Project'*) driver_type=mesa;;
-    *) die "unknown vendor"; ;;
+    *) return 1; ;;
   esac
   echo $driver_type
 }
@@ -114,7 +114,9 @@ has_systemd() {
 
 create_activation_service() {
   local script_path=$1
-  cat >$SYSTEMD_SERVICE_FILE <<EOF
+  local tmp
+  tmp=$(mktemp)
+  cat >"$tmp" <<EOF
 [Unit]
 Description=Activate graphics driver installed by nix-driver-installer
 
@@ -125,13 +127,14 @@ ExecStart=$script_path activate
 [Install]
 WantedBy=multi-user.target
 EOF
+  sudo mv "$tmp" $SYSTEMD_SERVICE_FILE
   local result=$?
   if [[ $result -ne 0 ]]; then
     die
   fi
   echo "Systemd service file was created at $SYSTEMD_SERVICE_FILE."
   if ask_yes_no "Would you like to enable it?"; then
-    systemctl enable "$SYSTEMD_SERVICE_NAME"
+    sudo systemctl enable "$SYSTEMD_SERVICE_NAME"
   fi
 }
 
@@ -139,7 +142,7 @@ install() {
   local driver_type
 
   echo -n "Checking driver type: "
-  driver_type="$(get_driver_type)"
+  driver_type="$(get_driver_type)" || die "Unknown vendor"
   echo "${driver_type}"
 
   local nixpkgs_url driver_path
@@ -168,10 +171,10 @@ install() {
   install_location=$(ask_install_location)
   installed_script_location="$install_location/$(basename "$THIS_SCRIPT")"
   
-  mkdir -p "$install_location" || die "Failed to create install directory."
-  cp "$THIS_SCRIPT" "$install_location" || die "Failed to install this script."
-  ln -snf "$driver_path" "$install_location/opengl-driver" || die "Failed to create symbolic link to driver."
-  nix-store --add-root "$install_location/opengl-driver" -r "$driver_path" || die "Failed to add driver to gcroot."
+  sudo mkdir -p "$install_location" || die "Failed to create install directory."
+  sudo cp "$THIS_SCRIPT" "$install_location" || die "Failed to install this script."
+  sudo ln -snf "$driver_path" "$install_location/opengl-driver" || die "Failed to create symbolic link to driver."
+  sudo nix-store --add-root "$install_location/opengl-driver" -r "$driver_path" > /dev/null || die "Failed to add driver to gcroot."
 
   activate "$install_location"
 
@@ -188,7 +191,7 @@ activate() {
   echo "Activating..."
   local driver_path
   driver_path=$(readlink "$install_location/opengl-driver") || die
-  ln -snf "$driver_path" /run/opengl-driver
+  sudo ln -snf "$driver_path" /run/opengl-driver
 }
 
 uninstall() {
@@ -196,9 +199,9 @@ uninstall() {
   
   if [[ -f $SYSTEMD_SERVICE_FILE ]]; then
     echo "Disableing $SYSTEMD_SERVICE_NAME"
-    systemctl disable "$SYSTEMD_SERVICE_NAME"
+    sudo systemctl disable "$SYSTEMD_SERVICE_NAME"
     echo "Removing $SYSTEMD_SERVICE_FILE"
-    rm $SYSTEMD_SERVICE_FILE
+    sudo rm $SYSTEMD_SERVICE_FILE
   fi
 
   if [[ -L $install_location/opengl-driver ]]; then
@@ -208,12 +211,12 @@ uninstall() {
       path_b=$(readlink /run/opengl-driver)
       if [[ $path_a == "$path_b" ]]; then
         echo "Removing /run/opengl-driver";
-        rm /run/opengl-driver;
+        sudo rm /run/opengl-driver;
       fi
     fi
     echo "Removing $install_location/opengl-driver"
-    rm "$install_location/opengl-driver"
-    rm -r "$install_location"
+    sudo rm "$install_location/opengl-driver"
+    sudo rm -r "$install_location"
   fi
 }
 
