@@ -1,0 +1,235 @@
+#!/usr/bin/env bash
+
+THIS_SCRIPT=${BASH_SOURCE[0]}
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+SYSTEMD_SERVICE_NAME="nix-activate-gl.service"
+SYSTEMD_SERVICE_FILE="/etc/systemd/system/$SYSTEMD_SERVICE_NAME"
+
+interactive=1
+
+
+die() {
+  local msg=$1
+  : "${msg:="Unknown error"}"
+  echo "ERROR: $msg"
+  exit 1
+}
+
+get_glx_vendor_string() {
+  glxinfo_str=$(glxinfo)
+  pattern="client glx vendor string: ([^"$'\n'")]*)"
+  if [[ $glxinfo_str =~ $pattern ]]; then
+    echo -n "${BASH_REMATCH[1]}"
+  fi
+}
+
+get_driver_type() {
+  local driver_type
+  case $(get_glx_vendor_string) in
+    'NVIDIA Corporation') driver_type=nvidia;;
+    'Mesa Project'*) driver_type=mesa;;
+    *) die "unknown vendor"; ;;
+  esac
+  echo $driver_type
+}
+
+get_nvidia_driver_version() {
+  nvidia-smi --query-gpu=driver_version --format=csv,noheader
+}
+
+ask_nixpkgs_version() {
+  local default_version="nixos-22.11"
+  if [[ $interactive -ne 0 ]]; then
+    read -rp "Enter the nixpkgs version (default: $default_version): " version
+    : "${version:=$default_version}"
+  else
+    version=$default_version
+  fi
+  echo "$version"
+}
+
+ask_install_location() {
+  local default="/opt/nix-driver-installer"
+  if [[ $interactive -ne 0 ]]; then
+    read -rp "Enter the install location (default: $default): " path
+    : "${path:=$default}"
+  else
+    path=$default_version
+  fi
+  echo "$path"
+}
+
+ask_yes_no() {
+  local msg=$1
+  read -rp "$msg (y/n): " ans
+  case $ans in
+    y) return 0;;
+    *) return 1;;
+  esac
+}
+
+build_nvidia_driver() {
+  local nixpkgs_url=$1
+  local driver_version=$2
+  local driver_url="https://us.download.nvidia.com/XFree86/Linux-x86_64/$driver_version/NVIDIA-Linux-x86_64-$driver_version.run"
+  local nixfile
+  nixfile=$(mktemp)
+  cat >"$nixfile" <<EOF
+let
+  pkgs = import (fetchTarball {
+    url = "$nixpkgs_url";
+  }) { config = { allowUnfree = true; }; };
+in
+  (pkgs.linuxPackages.nvidia_x11.override (old: {
+    libsOnly = true;
+    kernel = null;
+  })).overrideAttrs (oldAttrs: {
+    nativeBuildInputs = oldAttrs.nativeBuildInputs ++ [ pkgs.breakpointHook ];
+    src = builtins.fetchurl "$driver_url";
+    useGLVND = true;
+  })
+EOF
+  nix-build --option sandbox false --no-out-link "$nixfile" || die "Failed to build NVIDIA driver"
+}
+
+build_mesa_driver() {
+  local nixpkgs_url=$1
+  nixfile=$(mktemp)
+  cat >"$nixfile" <<EOF
+let
+  pkgs = import (fetchTarball {
+    url = "$nixpkgs_url";
+  }) {};
+in
+  pkgs.mesa.drivers
+EOF
+  nix-build --no-out-link "$nixfile" || die "Failed to build mesa driver"
+}
+
+has_systemd() {
+  systemctl --version > /dev/null
+  return $?
+}
+
+create_activation_service() {
+  local script_path=$1
+  cat >$SYSTEMD_SERVICE_FILE <<EOF
+[Unit]
+Description=Activate graphics driver installed by nix-driver-installer
+
+[Service]
+Type=oneshot
+ExecStart=$script_path activate
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  local result=$?
+  if [[ $result -ne 0 ]]; then
+    die
+  fi
+  echo "Systemd service file was created at $SYSTEMD_SERVICE_FILE."
+  if ask_yes_no "Would you like to enable it?"; then
+    systemctl enable "$SYSTEMD_SERVICE_NAME"
+  fi
+}
+
+install() {
+  local driver_type
+
+  echo -n "Checking driver type: "
+  driver_type="$(get_driver_type)"
+  echo "${driver_type}"
+
+  local nixpkgs_url driver_path
+  nixpkgs_url="https://github.com/NixOS/nixpkgs/archive/$(ask_nixpkgs_version).tar.gz"
+
+  case $driver_type in
+    nvidia)
+      local driver_version
+      echo -n "Checking driver version: "
+      driver_version=$(get_nvidia_driver_version)
+      echo "${driver_version}"
+
+      echo "Building NVIDIA driver (this may take a while)..."
+      driver_path=$(build_nvidia_driver "$nixpkgs_url" "$driver_version")
+      echo "Done."
+    ;;
+
+    mesa)
+      echo "Building mesa driver..."
+      driver_path=$(build_mesa_driver "$nixpkgs_url")
+      echo "Done."
+    ;;
+  esac
+
+  local install_location
+  install_location=$(ask_install_location)
+  installed_script_location="$install_location/$(basename "$THIS_SCRIPT")"
+  
+  mkdir -p "$install_location" || die "Failed to create install directory."
+  cp "$THIS_SCRIPT" "$install_location" || die "Failed to install this script."
+  ln -snf "$driver_path" "$install_location/opengl-driver" || die "Failed to create symbolic link to driver."
+  nix-store --add-root "$install_location/opengl-driver" -r "$driver_path" || die "Failed to add driver to gcroot."
+
+  activate "$install_location"
+
+  echo "NOTE: Re-activation is required each time the system is rebooted."
+
+  if has_systemd && ask_yes_no "Would you like to automate it by creating systemd service?"; then
+    create_activation_service "$installed_script_location"
+  fi
+}
+
+activate() {
+  local install_location=$1
+  : "${install_location:=$SCRIPT_DIR}"
+  echo "Activating..."
+  local driver_path
+  driver_path=$(readlink "$install_location/opengl-driver") || die
+  ln -snf "$driver_path" /run/opengl-driver
+}
+
+uninstall() {
+  local install_location=$SCRIPT_DIR
+  
+  if [[ -f $SYSTEMD_SERVICE_FILE ]]; then
+    echo "Disableing $SYSTEMD_SERVICE_NAME"
+    systemctl disable "$SYSTEMD_SERVICE_NAME"
+    echo "Removing $SYSTEMD_SERVICE_FILE"
+    rm $SYSTEMD_SERVICE_FILE
+  fi
+
+  if [[ -L $install_location/opengl-driver ]]; then
+    if [[ -L /run/opengl-driver ]]; then
+      local path_a path_b
+      path_a=$(readlink "$install_location/opengl-driver")
+      path_b=$(readlink /run/opengl-driver)
+      if [[ $path_a == "$path_b" ]]; then
+        echo "Removing /run/opengl-driver";
+        rm /run/opengl-driver;
+      fi
+    fi
+    echo "Removing $install_location/opengl-driver"
+    rm "$install_location/opengl-driver"
+    rm -r "$install_location"
+  fi
+}
+
+main() {
+  local subcommand=$1
+  if [[ -z $subcommand ]]; then
+    echo "No subcommand specified. defaulting to install."
+    subcommand=install
+  fi
+
+  case $subcommand in
+    install) install;;
+    activate) activate;;
+    uninstall) uninstall;;
+    *) die "Unknown subcommand: $subcommand"
+  esac
+}
+
+main "$@"
