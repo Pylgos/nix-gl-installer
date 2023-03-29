@@ -173,6 +173,7 @@ install() {
   
   sudo mkdir -p "$install_location" || die "Failed to create install directory."
   sudo cp "$THIS_SCRIPT" "$install_location" || die "Failed to install this script."
+  sudo chmod +x "$installed_script_location"
   sudo ln -snf "$driver_path" "$install_location/opengl-driver" || die "Failed to create symbolic link to driver."
   sudo nix-store --add-root "$install_location/opengl-driver" -r "$driver_path" > /dev/null || die "Failed to add driver to gcroot."
 
@@ -183,6 +184,8 @@ install() {
   if has_systemd && ask_yes_no "Would you like to automate it by creating systemd service?"; then
     create_activation_service "$installed_script_location"
   fi
+
+  echo "Done."
 }
 
 activate() {
