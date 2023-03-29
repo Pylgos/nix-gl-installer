@@ -50,7 +50,7 @@ ask_nixpkgs_version() {
 }
 
 ask_install_location() {
-  local default="/opt/nix-driver-installer"
+  local default="/opt/nix-gl-installer"
   if [[ $interactive -ne 0 ]]; then
     read -rp "Enter the install location (default: $default): " path
     : "${path:=$default}"
