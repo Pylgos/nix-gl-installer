@@ -21,3 +21,8 @@ Required on every startup if auto-activation was not enabled during installation
 ```sh
 /opt/nix-gl-installer/nix-gl-installer activate
 ```
+
+## Credit
+This script is heavily inspired by the following projects.
+* https://github.com/guibou/nixGL.git
+* https://github.com/deepfire/nix-install-vendor-gl.git
