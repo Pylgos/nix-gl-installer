@@ -221,6 +221,10 @@ uninstall() {
 }
 
 main() {
+  if [[ -v __NIXOS_SET_ENVIRONMENT_DONE ]]; then
+    die "Running this script on NixOS is pointless!"
+  fi
+
   local subcommand=$1
   if [[ -z $subcommand ]]; then
     echo "No subcommand specified. defaulting to install."
