@@ -172,8 +172,8 @@ install() {
   installed_script_location="$install_location/$(basename "$THIS_SCRIPT")"
   
   sudo mkdir -p "$install_location" || die "Failed to create install directory."
-  if [[ ! $THIS_SCRIPT -ef $install_location ]]; then
-    sudo cp "$THIS_SCRIPT" "$install_location" || die "Failed to install this script."
+  if [[ ! $THIS_SCRIPT -ef $installed_script_location ]]; then
+    sudo cp "$THIS_SCRIPT" "$installed_script_location" || die "Failed to install this script."
   fi
   sudo chmod +x "$installed_script_location"
   sudo ln -snf "$driver_path" "$install_location/opengl-driver" || die "Failed to create symbolic link to driver."
