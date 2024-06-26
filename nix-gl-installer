@@ -143,7 +143,7 @@ install() {
 
   echo "Detecting graphics driver type..."
   driver_type="$(get_driver_type)" || die "Unknown vendor detected."
-  echo "Detected driver type: '$driver_type'."
+  echo "Detected driver type: $driver_type"
 
   local nixpkgs_url driver_path
   nixpkgs_url="https://github.com/NixOS/nixpkgs/archive/$(ask_nixpkgs_version).tar.gz"
