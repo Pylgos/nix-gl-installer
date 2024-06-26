@@ -1,28 +1,31 @@
 # nix-gl-installer
 
-nix-gl-installer solve the ["OpenGL" problem](https://nixos.wiki/wiki/Nixpkgs_with_OpenGL_on_non-NixOS) with nix by installing user-space driver into `/run/opengl-driver`. Tested on NVIDIA and Intel GPUs.
+The `nix-gl-installer` addresses the "OpenGL problem" on Nix by installing a user-space driver into `/run/opengl-driver`. It has been tested on NVIDIA and Intel GPUs.
 
 ## Usage
-Running this script with root privileges may cause driver detection failure. Please execute with user privileges.
+> [!NOTE]
+> Running this script with root privileges may lead to driver detection failure. Please execute it with user privileges.
 
-### Install
+### Installation
+Execute the following commands to download and run the `nix-gl-installer`:
 ```sh
-curl https://raw.githubusercontent.com/Pylgos/nix-gl-installer/main/nix-gl-installer > ./nix-gl-installer
+curl -L https://raw.githubusercontent.com/Pylgos/nix-gl-installer/main/nix-gl-installer -o nix-gl-installer
 bash ./nix-gl-installer
 ```
 
-### Uninstall
+### Uninstallation
+To remove the installed `nix-gl-installer`, run the following command:
 ```sh
 /opt/nix-gl-installer/nix-gl-installer uninstall
 ```
 
-### Activate
-Required on every startup if auto-activation was not enabled during installation.
+### Activation
+If auto-activation was not enabled during installation, you need to activate it on every startup with the following command:
 ```sh
 /opt/nix-gl-installer/nix-gl-installer activate
 ```
 
-## Credit
+## Credits
 This script is heavily inspired by the following projects.
 * https://github.com/guibou/nixGL.git
 * https://github.com/deepfire/nix-install-vendor-gl.git
