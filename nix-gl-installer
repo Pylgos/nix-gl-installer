@@ -41,7 +41,7 @@ get_nvidia_driver_version() {
 ask_nixpkgs_version() {
   local default_version="nixos-24.05"
   if [[ $interactive -ne 0 ]]; then
-    read -rp "Enter the nixpkgs version (default: $default_version): " version
+    read -rp "Enter the Nixpkgs version (default: $default_version): " version
     : "${version:=$default_version}"
   else
     version=$default_version
@@ -55,7 +55,7 @@ ask_install_location() {
     read -rp "Enter the install location (default: $default): " path
     : "${path:=$default}"
   else
-    path=$default_version
+    path=$default
   fi
   echo "$path"
 }
@@ -90,7 +90,7 @@ in
     useGLVND = true;
   })
 EOF
-  nix-build --option sandbox false --no-out-link "$nixfile" || die "Failed to build NVIDIA driver"
+  nix-build --option sandbox false --no-out-link "$nixfile" || die "Failed to build the NVIDIA driver."
 }
 
 build_mesa_driver() {
@@ -104,7 +104,7 @@ let
 in
   pkgs.mesa.drivers
 EOF
-  nix-build --no-out-link "$nixfile" || die "Failed to build mesa driver"
+  nix-build --no-out-link "$nixfile" || die "Failed to build Mesa driver."
 }
 
 has_systemd() {
@@ -141,9 +141,9 @@ EOF
 install() {
   local driver_type
 
-  echo -n "Checking driver type: "
-  driver_type="$(get_driver_type)" || die "Unknown vendor"
-  echo "${driver_type}"
+  echo "Detecting graphics driver type..."
+  driver_type="$(get_driver_type)" || die "Unknown vendor detected."
+  echo "Detected driver type: '$driver_type'."
 
   local nixpkgs_url driver_path
   nixpkgs_url="https://github.com/NixOS/nixpkgs/archive/$(ask_nixpkgs_version).tar.gz"
@@ -151,17 +151,17 @@ install() {
   case $driver_type in
     nvidia)
       local driver_version
-      echo -n "Checking driver version: "
+      echo -n "Checking driver version..."
       driver_version=$(get_nvidia_driver_version)
-      echo "${driver_version}"
+      echo "Detected version: $driver_version"
 
-      echo "Building NVIDIA driver (this may take a while)..."
+      echo "Building NVIDIA driver (this may take some time)..."
       driver_path=$(build_nvidia_driver "$nixpkgs_url" "$driver_version")
       echo "Done."
     ;;
 
     mesa)
-      echo "Building mesa driver..."
+      echo "Building Mesa driver (this may take some time)..."
       driver_path=$(build_mesa_driver "$nixpkgs_url")
       echo "Done."
     ;;
@@ -171,23 +171,23 @@ install() {
   install_location=$(ask_install_location)
   installed_script_location="$install_location/$(basename "$THIS_SCRIPT")"
   
-  sudo mkdir -p "$install_location" || die "Failed to create install directory."
+  sudo mkdir -p "$install_location" || die "Failed to create the install directory."
   if [[ ! $THIS_SCRIPT -ef $installed_script_location ]]; then
     sudo cp "$THIS_SCRIPT" "$installed_script_location" || die "Failed to install this script."
   fi
   sudo chmod +x "$installed_script_location"
-  sudo ln -snf "$driver_path" "$install_location/opengl-driver" || die "Failed to create symbolic link to driver."
-  sudo nix-store --add-root "$install_location/opengl-driver" -r "$driver_path" > /dev/null || die "Failed to add driver to gcroot."
+  sudo ln -snf "$driver_path" "$install_location/opengl-driver" || die "Failed to create symbolic link to the driver."
+  sudo nix-store --add-root "$install_location/opengl-driver" -r "$driver_path" > /dev/null || die "Failed to add the driver to gcroot."
 
   activate "$install_location"
 
-  echo "NOTE: Re-activation is required each time the system is rebooted."
+  echo "NOTE: Re-activation is required after rebooting the system."
 
-  if has_systemd && ask_yes_no "Would you like to automate it by creating systemd service?"; then
+  if has_systemd && ask_yes_no "Would you like to automate re-activation by creating a systemd service?"; then
     create_activation_service "$installed_script_location"
   fi
 
-  echo "Done."
+  echo "Installation complete."
 }
 
 activate() {
@@ -195,7 +195,7 @@ activate() {
   : "${install_location:=$SCRIPT_DIR}"
   echo "Activating..."
   local driver_path
-  driver_path=$(readlink "$install_location/opengl-driver") || die
+  driver_path=$(readlink "$install_location/opengl-driver") || die "Failed to read the driver path."
   sudo ln -snf "$driver_path" /run/opengl-driver
 }
 
@@ -203,10 +203,10 @@ uninstall() {
   local install_location=$SCRIPT_DIR
   
   if [[ -f $SYSTEMD_SERVICE_FILE ]]; then
-    echo "Disableing $SYSTEMD_SERVICE_NAME"
-    sudo systemctl disable "$SYSTEMD_SERVICE_NAME"
+    echo "Disableing '$SYSTEMD_SERVICE_NAME'"
+    sudo systemctl disable "$SYSTEMD_SERVICE_NAME" || die "Failed to disable '$SYSTEMD_SERVICE_NAME'."
     echo "Removing $SYSTEMD_SERVICE_FILE"
-    sudo rm $SYSTEMD_SERVICE_FILE
+    sudo rm $SYSTEMD_SERVICE_FILE || die "Failed to remove '$SYSTEMD_SERVICE_FILE'."
   fi
 
   if [[ -L $install_location/opengl-driver ]]; then
@@ -217,9 +217,11 @@ uninstall() {
       if [[ $path_a == "$path_b" ]]; then
         echo "Removing /run/opengl-driver";
         sudo rm /run/opengl-driver;
+      else
+        echo "Not removing '/run/opengl-driver' because it's not a symlink to '$install_location/opengl-driver'."
       fi
     fi
-    echo "Removing $install_location/opengl-driver"
+    echo "Removing '$install_location/opengl-driver'"
     sudo rm "$install_location/opengl-driver"
     sudo rm -r "$install_location"
   fi
@@ -227,7 +229,7 @@ uninstall() {
 
 main() {
   if [[ -v __NIXOS_SET_ENVIRONMENT_DONE ]]; then
-    die "Running this script on NixOS is pointless!"
+    die "NixOS environment detected. This script should not be run on NixOS."
   fi
 
   local subcommand=$1
