@@ -39,7 +39,7 @@ get_nvidia_driver_version() {
 }
 
 ask_nixpkgs_version() {
-  local default_version="nixos-23.05"
+  local default_version="nixos-24.05"
   if [[ $interactive -ne 0 ]]; then
     read -rp "Enter the nixpkgs version (default: $default_version): " version
     : "${version:=$default_version}"
