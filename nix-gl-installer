@@ -62,7 +62,12 @@ ask_install_location() {
 
 ask_yes_no() {
   local msg=$1
-  read -rp "$msg (y/n): " ans
+  if [[ $interactive -ne 0 ]]; then
+    read -rp "$msg (y/n): " ans
+  else
+    echo "$msg (y/n): y"
+    ans=y
+  fi
   case $ans in
     y) return 0;;
     *) return 1;;
@@ -118,7 +123,7 @@ create_activation_service() {
   tmp=$(mktemp)
   cat >"$tmp" <<EOF
 [Unit]
-Description=Activate graphics driver installed by nix-driver-installer
+Description=Activate graphics driver installed by nix-gl-installer
 
 [Service]
 Type=oneshot
@@ -127,15 +132,13 @@ ExecStart=$script_path activate
 [Install]
 WantedBy=multi-user.target
 EOF
-  sudo mv "$tmp" $SYSTEMD_SERVICE_FILE
+  sudo mv "$tmp" $SYSTEMD_SERVICE_FILE || die "Failed to create systemd service file."
   local result=$?
   if [[ $result -ne 0 ]]; then
     die
   fi
-  echo "Systemd service file was created at $SYSTEMD_SERVICE_FILE."
-  if ask_yes_no "Would you like to enable it?"; then
-    sudo systemctl enable "$SYSTEMD_SERVICE_NAME"
-  fi
+  echo "Systemd service file was created at '$SYSTEMD_SERVICE_FILE'."
+  sudo systemctl enable "$SYSTEMD_SERVICE_NAME" || die "Failed to enable '$SYSTEMD_SERVICE_NAME'."
 }
 
 install() {
@@ -196,7 +199,7 @@ activate() {
   echo "Activating..."
   local driver_path
   driver_path=$(readlink "$install_location/opengl-driver") || die "Failed to read the driver path."
-  sudo ln -snf "$driver_path" /run/opengl-driver
+  sudo ln -snf "$driver_path" /run/opengl-driver || die "Failed to create symbolic link to the driver."
 }
 
 uninstall() {
@@ -231,6 +234,25 @@ main() {
   if [[ -v __NIXOS_SET_ENVIRONMENT_DONE ]]; then
     die "NixOS environment detected. This script should not be run on NixOS."
   fi
+
+  local positional_args=()
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -y|--default)
+        interactive=0
+        shift # past argument
+        ;;
+      -*)
+        echo "Unknown option $1"
+        exit 1
+        ;;
+      *)
+        positional_args+=("$1") # save positional arg
+        shift # past argument
+        ;;
+    esac
+  done
+  set -- "${positional_args[@]}" # restore positional parameters
 
   local subcommand=$1
   if [[ -z $subcommand ]]; then
