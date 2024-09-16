@@ -245,6 +245,17 @@ main() {
         interactive=0
         shift # past argument
         ;;
+      -h|--help)
+        echo "Usage: $0 [install|activate|uninstall]"
+        echo "Options:"
+        echo "  -y, --default  Always answer 'yes' to prompts."
+        echo "  -h, --help     Show this help message."
+        echo "Subcommands:"
+        echo "  install        Install the graphics driver."
+        echo "  activate       Activate the installed graphics driver."
+        echo "  uninstall      Uninstall the installed graphics driver."
+        exit 0
+        ;;
       -*)
         echo "Unknown option $1"
         exit 1
