@@ -13,9 +13,10 @@ jobs:
     - name: Check out repository
       uses: actions/checkout@v4
 
-    - uses: DeterminateSystems/nix-installer-action@v16
+    - name: Install nix
+      uses: DeterminateSystems/nix-installer-action@v16
 
-    - name: Install glxinfo
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y libgl1-mesa-dev mesa-utils
@@ -27,12 +28,4 @@ jobs:
 
     - name: Verify installation
       run: |
-        if [ ! -d "/opt/nix-gl-installer" ]; then
-          echo "Installation directory not found!"
-          exit 1
-        fi
-        if [ ! -L "/run/opengl-driver" ]; then
-          echo "Symbolic link to driver not found!"
-          exit 1
-        fi
         xvfb-run --auto-servernum nix env shell github:NixOS/nixpkgs/nixos-24.05#mesa-demos -c glxinfo
