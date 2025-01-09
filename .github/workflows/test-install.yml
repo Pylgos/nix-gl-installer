@@ -19,10 +19,11 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libgl1-mesa-dev mesa-utils
+        sudo apt-get install -y xvfb x11-xserver-utils
 
     - name: Run nix-gl-installer install
       run: |
-        bash ./nix-gl-installer install -y
+        xvfb-run --auto-servernum bash ./nix-gl-installer install -y
 
     - name: Verify installation
       run: |
