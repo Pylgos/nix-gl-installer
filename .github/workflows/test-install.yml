@@ -18,7 +18,7 @@ jobs:
     - name: Install glxinfo
       run: |
         sudo apt-get update
-        sudo apt-get install -y libgl1-mesa-dev
+        sudo apt-get install -y libgl1-mesa-dev mesa-utils
 
     - name: Run nix-gl-installer install
       run: |
