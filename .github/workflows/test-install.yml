@@ -35,3 +35,4 @@ jobs:
           echo "Symbolic link to driver not found!"
           exit 1
         fi
+        xvfb-run --auto-servernum nix env shell github:NixOS/nixpkgs/24.05#mesa-demos -c glxinfo
