@@ -1,0 +1,36 @@
+name: Test Install
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-install:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+
+    - uses: DeterminateSystems/nix-installer-action@v16
+
+    - name: Install glxinfo
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y glxinfo
+
+    - name: Run nix-gl-installer install
+      run: |
+        bash ./nix-gl-installer install -y
+
+    - name: Verify installation
+      run: |
+        if [ ! -d "/opt/nix-gl-installer" ]; then
+          echo "Installation directory not found!"
+          exit 1
+        fi
+        if [ ! -L "/run/opengl-driver" ]; then
+          echo "Symbolic link to driver not found!"
+          exit 1
+        fi
