@@ -1,0 +1,30 @@
+name: Test Install
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-install:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+
+    - name: Install nix
+      uses: DeterminateSystems/nix-installer-action@v16
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-dev mesa-utils xvfb x11-xserver-utils
+
+    - name: Run nix-gl-installer install
+      run: |
+        xvfb-run --auto-servernum bash ./nix-gl-installer install -y
+
+    - name: Verify installation
+      run: |
+        xvfb-run --auto-servernum nix env shell github:NixOS/nixpkgs/nixos-24.05#mesa-demos -c glxinfo
