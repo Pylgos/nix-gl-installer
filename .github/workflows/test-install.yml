@@ -27,4 +27,4 @@ jobs:
 
     - name: Verify installation
       run: |
-        xvfb-run --auto-servernum nix env shell github:NixOS/nixpkgs/nixos-24.05#mesa-demos -c glxinfo
+        xvfb-run --auto-servernum nix env shell github:NixOS/nixpkgs/nixos-24.11#mesa-demos -c glxinfo
