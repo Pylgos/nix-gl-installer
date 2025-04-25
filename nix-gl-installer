@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 
-THIS_SCRIPT=${BASH_SOURCE[0]}
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
+# Constants
+DEFAULT_NIXPKGS_VERSION="nixos-24.11"
 SYSTEMD_SERVICE_NAME="nix-activate-gl.service"
 SYSTEMD_SERVICE_FILE="/etc/systemd/system/$SYSTEMD_SERVICE_NAME"
+
+
+THIS_SCRIPT=${BASH_SOURCE[0]}
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 interactive=1
 
@@ -39,12 +42,11 @@ get_nvidia_driver_version() {
 }
 
 ask_nixpkgs_version() {
-  local default_version="nixos-24.05"
   if [[ $interactive -ne 0 ]]; then
-    read -rp "Enter the Nixpkgs version (default: $default_version): " version
-    : "${version:=$default_version}"
+    read -rp "Enter the Nixpkgs version (default: $DEFAULT_NIXPKGS_VERSION): " version
+    : "${version:=$DEFAULT_NIXPKGS_VERSION}"
   else
-    version=$default_version
+    version=$DEFAULT_NIXPKGS_VERSION
   fi
   echo "$version"
 }
