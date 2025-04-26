@@ -29,11 +29,11 @@ get_glx_vendor_string() {
 
 get_driver_type() {
   local driver_type
-  case $(get_glx_vendor_string) in
-    'NVIDIA Corporation') driver_type=nvidia;;
-    'Mesa Project'*) driver_type=mesa;;
-    *) return 1; ;;
-  esac
+  if type nvidia-smi > /dev/null; then
+    driver_type=nvidia
+  else
+    driver_type=mesa
+  fi
   echo $driver_type
 }
 
