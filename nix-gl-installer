@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Constants
-DEFAULT_NIXPKGS_VERSION="nixos-24.11"
+DEFAULT_NIXPKGS_VERSION="nixos-25.11"
 SYSTEMD_SERVICE_NAME="nix-activate-gl.service"
 SYSTEMD_SERVICE_FILE="/etc/systemd/system/$SYSTEMD_SERVICE_NAME"
 
